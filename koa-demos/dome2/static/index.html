@@ -1,0 +1,290 @@
+// static/index.html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>koa+mysql实现增删改查操作</title>
+    <style>
+        html * {
+            padding: 0;
+            margin: 0;
+            border: 0;
+        }
+
+        body {
+            position: relative;
+            height: 100%;
+        }
+
+        body div {
+            box-sizing: border-box;
+        }
+
+        input {
+            border: 1px solid #66cded;
+            line-height: 32px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            padding: 0 5px;
+        }
+
+        button {
+            border: 1px solid #3eacff;
+            background: #3eacff;
+            color: #fff;
+            font-size: 14px;
+            line-height: 30px;
+            padding: 5px 10px;
+            margin-left: 50px;
+        }
+
+        hr {
+            border-bottom: 1px solid #ccc;
+            margin: 20px 0;
+        }
+
+        a {
+            color: #3eacff;
+            background: transparent;
+            text-decoration: none;
+            outline: none;
+            cursor: pointer;
+        }
+
+        a:hover {
+            color: #0c8cee;
+        }
+
+        #app {
+            width: 1200px;
+            margin: 0 auto;
+            padding-top: 20px;
+        }
+
+        .title {
+            font-weight: bold;
+            color: rgba(0, 0, 0, .85);
+            font-size: 16px;
+        }
+
+        .table-row {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .table-row thead tr {
+            background: #e4f3ff;
+            color: rgba(0, 0, 0, .85);
+        }
+
+        .table-row td {
+            border: 1px solid #ccc;
+            padding: 10px 20px;
+            text-align: center;
+        }
+
+        .mr15 {
+            margin-right: 15px;
+        }
+
+        .mb15 {
+            margin-bottom: 15px;
+        }
+
+        .modal {
+            position: fixed;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(55, 55, 55, .6);
+        }
+
+        .modal-form {
+            position: absolute;
+            background: #fff;
+            padding: 40px 20px;
+            top: 50%;
+            left: 50%;
+            width: 400px;
+            color: #000;
+            margin-left: -200px;
+            margin-top: -100px;
+            text-align: center;
+        }
+
+        #close {
+            position: absolute;
+            top: 0;
+            right: 0;
+            color: #000;
+            background: #fff;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <p class="mb15 title">添加数据</p>
+        <form>
+            <p><label for="name">name: </label><input type="text" id="name" /></p>
+            <p><label for="status">status: </label><input type="text" id="status" /></p>
+            <p><button id="addBtn">添加数据</button></p>
+        </form>
+        <hr />
+        <p class="mb15 title">显示表的数据</p>
+        <div id="showData"></div>
+        <hr />
+        <p class="mb15 title">显示一条数据的详情信息</p>
+        <div id="detail"></div>
+        <div id="modal" style="display: none;" class="modal">
+            <form class="modal-form">
+                <p><label for="name">name: </label><input type="text" id="edit_name" /></p>
+                <p><label for="status">status: </label><input type="text" id="edit_status" /></p>
+                <p><button id="edit_btn">提交修改</button></p>
+                <button id="close">关闭</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        var showData = document.getElementById('showData');
+        var addBtn = document.getElementById('addBtn');
+        var detail = document.getElementById('detail');
+        var edit_btn = document.getElementById('edit_btn');
+        var modal = document.getElementById('modal');
+        var close = document.getElementById('close');
+
+        var ID = '';
+
+        function getList() {
+            fetch('/getList')
+                .then((res) => {
+                    return res.json();
+                })
+                .then((data) => {
+                    let str = '<table class="table-row" id="tableRow"><thead><tr><td>ID</td><td>name</td><td>status</td><td>操作</td></tr></thead><tbody>';
+                    data.data.forEach(item => {
+                        str += '<tr><td>' + item.id + '</td><td>' + item.name + '</td><td>' + item.status + '</td><td><a href="javascript:;" class="detail mr15" data-id=' + item.id + '>详情</a><a href="javascript:;" class="edit mr15" data-item=' + JSON.stringify(item) + '>编辑</a><a href="javascript:;" class="delete" data-id=' + item.id + '>删除</a></td></tr>';
+                    });
+                    str += '</tbody></table>';
+                    showData.innerHTML = str;
+                });
+        }
+        getList();
+
+        function add() {
+            var name = document.getElementById('name').value;
+            var status = document.getElementById('status').value;
+            var params = {
+                name: name,
+                status: status
+            }
+            console.log(params)
+            fetch('/add', {
+                method: 'POST',
+                body: JSON.stringify(params)
+            })
+                .then((res) => {
+                    return res.json()
+                })
+                .then((data) => {
+                    if (data.code === 200) {
+                        getList();
+                    }
+                })
+        }
+        addBtn.onclick = function (e) {
+            e.preventDefault();
+            add();
+        };
+
+        function deleteData(id) {
+            fetch('/delete', {
+                method: 'POST',
+                body: JSON.stringify({ id: id })
+            })
+                .then((res) => {
+                    return res.json()
+                })
+                .then((data) => {
+                    if (data.code === 200) {
+                        getList();
+                    }
+                })
+        }
+
+        function getInfo(id) {
+            fetch('/getInfo/' + id)
+                .then((res) => {
+                    return res.json()
+                })
+                .then((resp) => {
+                    var data = resp.data;
+                    var str = 'ID 为' + data.ID + '的详细数据如下：' + '<br />';
+                    if (resp.code == 200) {
+                        str += 'ID：' + data.ID + '<br />';
+                        str += 'name：' + data.name + '<br />';
+                        str += 'status：' + data.status + '<br />';
+                    } else {
+                        str += resp.message;
+                    }
+                    detail.innerHTML = str;
+                })
+        }
+
+        function updateData(id, name, status) {
+            fetch('/update', {
+                method: 'POST',
+                body: JSON.stringify({ id: id, name: name, status: status })
+            })
+                .then((res) => {
+                    return res.json()
+                })
+                .then((data) => {
+                    console.log(data);
+                    modal.style.display = 'none';
+                    if (data.code === 200) {
+                        getList();
+                    }
+                })
+        }
+
+        showData.onclick = function (e) {
+            var target = e.target.className;
+            var item = JSON.parse(e.target.getAttribute('data-item'));
+            if (target.indexOf('edit') > -1) {
+                modal.style.display = 'block';
+                document.getElementById('edit_name').value = item.name;
+                document.getElementById('edit_status').value = item.status;
+                ID = item.id;
+            } else if (target.indexOf('delete') > -1) {
+                const id = e.target.getAttribute('data-id');
+                deleteData(id);
+            } else if (target.indexOf('detail') > -1) {
+                const id = e.target.getAttribute('data-id');
+                getInfo(id);
+            }
+        }
+
+        edit_btn.onclick = function (e) {
+            e.preventDefault();
+            var edit_name = document.getElementById('edit_name').value;
+            var edit_status = document.getElementById('edit_status').value;
+            updateData(ID, edit_name, edit_status);
+        }
+
+        close.onclick = function (e) {
+            e.preventDefault();
+            modal.style.display = 'none';
+        }
+
+    </script>
+</body>
+
+</html>
